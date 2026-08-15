@@ -30,6 +30,21 @@ npm run dev        # http://localhost:5173
 Play it in a **portrait** viewport. On a desktop browser, open the device toolbar and
 pick a phone — the game asks you to rotate in landscape, by design.
 
+## Deploying to GitHub Pages
+
+`.github/workflows/pages.yml` builds the site and publishes `dist/`. In the
+repository settings, set **Pages → Build and deployment → Source** to
+**GitHub Actions**. It then deploys on every push to `main`, and can be run
+against any branch from the Actions tab via *Run workflow*.
+
+Do **not** point Pages at a branch root. That serves the source `index.html`,
+which loads `/src/main.ts` — an absolute path to a TypeScript file that no
+browser can execute — and the result is a dark page and nothing else. The
+build output is what has to be published.
+
+The build uses a relative `base`, so the site works from a subdirectory such
+as `https://<user>.github.io/Echohold/` without further configuration.
+
 ## Controls
 
 **Touch (primary).** The scheme is semantic rather than positional, which is what

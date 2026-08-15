@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+# GitHub Pages serves whatever it is pointed at. Pointed at the repository
+# root it serves the *source* index.html, which loads /src/main.ts - an
+# absolute path to a TypeScript file that no browser can execute. The result
+# is a dark page and nothing else. This workflow builds the site and publishes
+# the contents of dist/ instead.
+
+on:
+  push:
+    branches: [main]
+  # Lets you publish from a feature branch before merging.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; always finish the most recent one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # A broken simulation should never reach the published page.
+      - run: npm test
+
+      # `npm run build` typechecks first, then builds into dist/.
+      - run: npm run build
+
+      # Belt and braces: stop any Jekyll processing from touching the output.
+      - run: touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
