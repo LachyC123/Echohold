@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ECHOHOLD</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#141a22" />
+    <meta name="description" content="Time-loop automation, fortress defence and progression strategy." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.svg" />
+    <style>
+      :root {
+        --eh-bg: #141a22;
+        --eh-stone: #46586b;
+        --eh-amber: #f0b357;
+        --eh-cream: #f4e6cd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--eh-bg);
+        color: var(--eh-cream);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overscroll-behavior: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #game-root {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 50% 32%, #1e2733 0%, #0e131a 78%);
+      }
+      #game-root canvas {
+        display: block;
+        touch-action: none;
+      }
+      /* Portrait request overlay - shown by the shell, not by Phaser, so it
+         survives even if the game fails to boot. */
+      #rotate-notice {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 32px;
+        text-align: center;
+        background: #0e131a;
+      }
+      #rotate-notice svg {
+        width: 74px;
+        height: 74px;
+      }
+      #rotate-notice p {
+        margin: 0;
+        max-width: 22ch;
+        font-size: 17px;
+        line-height: 1.45;
+        letter-spacing: 0.02em;
+        color: var(--eh-cream);
+      }
+      #rotate-notice small {
+        color: #90a2b5;
+        font-size: 13px;
+      }
+      body.eh-landscape #rotate-notice {
+        display: flex;
+      }
+      /* Boot failure surface - an honest error instead of a black screen. */
+      #boot-error {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        justify-content: center;
+        padding: 28px;
+        background: #0e131a;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      #boot-error h1 {
+        margin: 0;
+        font-size: 18px;
+        color: #d4674a;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      #boot-error pre {
+        margin: 0;
+        max-height: 45vh;
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        background: #060a0f;
+        color: #b9c7d6;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      body.eh-boot-failed #boot-error {
+        display: flex;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-root" aria-label="ECHOHOLD game canvas"></div>
+
+    <div id="rotate-notice" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#f0b357" stroke-width="1.4" stroke-linecap="round">
+        <rect x="7" y="2.5" width="10" height="19" rx="2" />
+        <path d="M10.5 18.6h3" />
+        <path d="M3.2 12a8.8 8.8 0 0 1 2.4-5" />
+        <path d="M3 8.4 5.6 7l1 2.6" />
+      </svg>
+      <p>ECHOHOLD is played in portrait.</p>
+      <small>Rotate your device to continue.</small>
+    </div>
+
+    <div id="boot-error" role="alert">
+      <h1>Echohold could not start</h1>
+      <pre id="boot-error-detail"></pre>
+      <small>Reload the page. If this persists, clear site data from your browser settings.</small>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
