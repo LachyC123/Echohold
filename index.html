@@ -21,6 +21,16 @@
         --eh-stone: #46586b;
         --eh-amber: #f0b357;
         --eh-cream: #f4e6cd;
+
+        /* Safe-area insets, published as plain custom properties so the game
+           can read them with getComputedStyle. `env()` is not readable from
+           script directly, and with `black-translucent` on iOS the page runs
+           under the status bar - without these the loop timer sits beneath
+           the notch. */
+        --sat: env(safe-area-inset-top, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
       }
       * {
         box-sizing: border-box;
