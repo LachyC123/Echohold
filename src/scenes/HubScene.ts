@@ -49,7 +49,9 @@ export class HubScene extends Phaser.Scene {
 
   private paintFortress(): void {
     const restored = new Set(this.context.save.restoredHubSectionIds);
-    const horizon = Math.round(this.scale.height * 0.33);
+    const height = this.scale.height;
+    // The diorama is the hero image, so it owns the upper half outright.
+    const horizon = Math.round(height * 0.44);
     this.horizon = horizon;
 
     // Sky and glow first, ground over the top: the light belongs behind the
@@ -57,61 +59,73 @@ export class HubScene extends Phaser.Scene {
     const sky = this.add.graphics().setDepth(Depth.ground);
     sky.fillStyle(Palette.timeViolet, 1);
     sky.fillRect(0, 0, DESIGN_WIDTH, horizon);
-    sky.fillStyle(Palette.readyGold, restored.size > 0 ? 0.16 : 0.06);
-    sky.fillCircle(DESIGN_WIDTH / 2, horizon - 30, 170);
+    sky.fillStyle(Palette.wardenAccent, restored.size > 0 ? 0.2 : 0.1);
+    sky.fillCircle(DESIGN_WIDTH / 2, horizon - 40, 190);
+    sky.fillStyle(Palette.readyGold, restored.size > 0 ? 0.16 : 0.05);
+    sky.fillCircle(DESIGN_WIDTH / 2, horizon - 40, 118);
 
+    const gateRestored = restored.has('gatehouse');
     const g = this.add.graphics().setDepth(Depth.groundDecal);
 
     // Keep.
     g.fillStyle(Palette.stoneDark, 1);
-    g.fillRect(160, horizon - 120, 160, 120);
+    g.fillRect(150, horizon - 168, 180, 168);
     g.fillStyle(Palette.stoneBase, 1);
-    g.fillRect(166, horizon - 114, 148, 108);
+    g.fillRect(157, horizon - 160, 166, 160);
 
     // The gatehouse: a ruin until the first scenario is stabilised.
-    const gateRestored = restored.has('gatehouse');
     g.fillStyle(gateRestored ? Palette.stoneBase : Palette.stoneDark, 1);
-    g.fillRect(196, horizon - 62, 88, 62);
+    g.fillRect(188, horizon - 86, 104, 86);
     if (gateRestored) {
       g.fillStyle(Palette.timber, 1);
-      g.fillRoundedRect(214, horizon - 50, 52, 50, { tl: 24, tr: 24, bl: 0, br: 0 });
-      g.fillStyle(Palette.readyGold, 0.9);
+      g.fillRoundedRect(210, horizon - 68, 60, 68, { tl: 30, tr: 30, bl: 0, br: 0 });
+      g.fillStyle(Palette.ochre, 0.9);
+      g.fillRect(216, horizon - 40, 48, 3);
       // Banners return with the residents.
-      g.fillTriangle(196, horizon - 62, 208, horizon - 62, 202, horizon - 40);
-      g.fillTriangle(272, horizon - 62, 284, horizon - 62, 278, horizon - 40);
+      g.fillStyle(Palette.readyGold, 0.95);
+      g.fillTriangle(186, horizon - 86, 200, horizon - 86, 193, horizon - 58);
+      g.fillTriangle(280, horizon - 86, 294, horizon - 86, 287, horizon - 58);
     } else {
+      // A gap in the wall, with rubble spilling into the doorway.
       g.fillStyle(Palette.ink, 1);
-      g.fillTriangle(214, horizon, 232, horizon - 44, 250, horizon);
-      g.fillTriangle(250, horizon, 262, horizon - 30, 276, horizon);
+      g.fillRect(206, horizon - 76, 68, 76);
+      g.fillStyle(Palette.stoneDark, 1);
+      g.fillTriangle(206, horizon, 228, horizon - 54, 250, horizon);
+      g.fillTriangle(248, horizon, 262, horizon - 36, 278, horizon);
     }
 
     // Bell tower, always present - it is why the fortress is trapped.
     g.fillStyle(Palette.stoneDark, 1);
-    g.fillRect(112, horizon - 150, 42, 150);
-    g.fillStyle(Palette.ochre, gateRestored ? 1 : 0.5);
-    g.fillRoundedRect(122, horizon - 176, 22, 26, { tl: 11, tr: 11, bl: 2, br: 2 });
+    g.fillRect(96, horizon - 206, 48, 206);
+    g.fillStyle(Palette.stoneBase, 1);
+    g.fillRect(102, horizon - 198, 36, 198);
+    g.fillStyle(gateRestored ? Palette.rewardGold : Palette.ochre, gateRestored ? 1 : 0.45);
+    g.fillRoundedRect(107, horizon - 236, 26, 32, { tl: 13, tr: 13, bl: 3, br: 3 });
 
+    // East tower, still broken.
     g.fillStyle(Palette.stoneDark, 1);
-    g.fillRect(330, horizon - 92, 40, 92);
+    g.fillRect(336, horizon - 122, 48, 122);
+    g.fillStyle(Palette.inkSoft, 1);
+    g.fillTriangle(336, horizon - 122, 356, horizon - 146, 384, horizon - 116);
 
     const ground = this.add.graphics().setDepth(Depth.stationBase);
     ground.fillStyle(Palette.inkSoft, 1);
-    ground.fillRect(0, horizon, DESIGN_WIDTH, this.scale.height - horizon);
-    ground.fillStyle(Palette.stoneDark, 0.5);
+    ground.fillRect(0, horizon, DESIGN_WIDTH, height - horizon);
+    ground.fillStyle(Palette.stoneDark, 0.6);
     ground.fillRect(0, horizon, DESIGN_WIDTH, 3);
 
     const caption = gateRestored
       ? HUB_SECTIONS['gatehouse']!.description
       : 'The north gate is still a gap in the wall.';
     this.add
-      .text(DESIGN_WIDTH / 2, horizon + 40, caption, {
+      .text(DESIGN_WIDTH / 2, horizon + 30, caption, {
         fontSize: '12px',
         color: gateRestored ? '#f0b357' : '#647b91',
         fontFamily: 'ui-sans-serif, system-ui, sans-serif',
         align: 'center',
         wordWrap: { width: 340 },
       })
-      .setOrigin(0.5)
+      .setOrigin(0.5, 0)
       .setDepth(Depth.hud);
   }
 
@@ -171,14 +185,18 @@ export class HubScene extends Phaser.Scene {
 
   private paintScenarioList(): void {
     const entries = this.entries();
-    // Anchored to the bottom so the card stack sits under the thumb on a tall
-    // phone and stays clear of the diorama on a short one.
-    const bottom = this.scale.height - 62;
-    let y = bottom - (entries.length - 1) * 86;
-    y = Math.max(y, this.horizon + 84);
+    const spacing = 86;
+    const stackHeight = (entries.length - 1) * spacing;
+
+    // Centred in the band between the diorama's caption and the footer, so
+    // there is never a dead strip of background between the two.
+    const regionTop = this.horizon + 84;
+    const regionBottom = this.scale.height - 72;
+    let y = regionTop + Math.max(0, (regionBottom - regionTop - stackHeight) / 2);
+
     for (const entry of entries) {
       this.paintScenarioCard(entry, y);
-      y += 86;
+      y += spacing;
     }
   }
 
@@ -253,7 +271,7 @@ export class HubScene extends Phaser.Scene {
 
   private paintFooter(): void {
     this.add
-      .text(DESIGN_WIDTH / 2, this.scale.height - 24, 'One minute. As many of you as it takes.', {
+      .text(DESIGN_WIDTH / 2, this.scale.height - 26, 'One minute. As many of you as it takes.', {
         fontSize: '11px',
         color: '#46586b',
         fontFamily: 'ui-sans-serif, system-ui, sans-serif',

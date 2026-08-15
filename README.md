@@ -126,7 +126,7 @@ Load-bearing decisions:
 npm test
 ```
 
-67 tests covering the systems the design document calls out in section 28:
+81 tests covering the systems the design document calls out in section 28:
 recorder ordering and interruption, playback and drift, interaction reservations,
 item conservation, objective transitions and idempotency, failure analysis,
 save round-trip and corruption recovery, the full restart regression, scenario
@@ -141,8 +141,12 @@ patterns, including a four-second stall, all producing an identical journal.
 - Relics, residents and the Chronicle are designed but not implemented.
 - Art is final-facing in style but is a generated placeholder set, not a hand-drawn
   pass. Audio is synthesised rather than composed.
-- The PWA offline shell is registered in production builds only and has not been
-  tested against a real install-and-fly-offline cycle.
+- The PWA offline shell registers at root scope in production builds and
+  precaches the entire build via a manifest emitted at build time. That the
+  cache is fully populated after one visit is verified; that the game *boots*
+  from it with the network gone is not. Chromium's emulated offline mode fails
+  service-worker-served subresources in this headless environment, so the check
+  is inconclusive rather than passing. It needs a real device.
 
 ## The single most valuable next improvement
 
