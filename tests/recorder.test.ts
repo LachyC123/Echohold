@@ -38,9 +38,14 @@ describe('CommandRecorder', () => {
     const recorder = new CommandRecorder(new IdRegistry(), 'test');
     recorder.start();
 
-    recorder.record(0, 'MOVE_TO', { point: { x: 100, y: 100 } });
+    const first = recorder.record(0, 'MOVE_TO', { point: { x: 100, y: 100 } })!;
+    recorder.noteCommandStarted(first, 0);
+
     // The player changed their mind 30 ticks in.
-    recorder.record(30, 'TAKE', { targetId: 'timber_stack' });
+    recorder.noteCommandInterrupted(30);
+    const second = recorder.record(30, 'TAKE', { targetId: 'timber_stack' })!;
+    recorder.noteCommandStarted(second, 30);
+    recorder.noteCommandFinished(70);
 
     const track = recorder.build(1800, 0, 0);
     expect(track.commands[0]!.maxRunTicks).toBe(30);
@@ -48,11 +53,30 @@ describe('CommandRecorder', () => {
     expect(track.commands[1]!.maxRunTicks).toBeUndefined();
   });
 
+  it('leaves a queued command untouched when the one before it completes', () => {
+    const recorder = new CommandRecorder(new IdRegistry(), 'test');
+    recorder.start();
+
+    const take = recorder.record(0, 'TAKE', { targetId: 'armoury_rack' })!;
+    recorder.noteCommandStarted(take, 0);
+    // The player lines up the delivery while the pickup is still running.
+    const deliver = recorder.record(40, 'DELIVER', { targetId: 'ballista' })!;
+    recorder.noteCommandFinished(60);
+    recorder.noteCommandStarted(deliver, 60);
+    recorder.noteCommandFinished(120);
+
+    const track = recorder.build(1800, 0, 0);
+    // Neither was abandoned, so neither is truncated on replay.
+    expect(track.commands.map((c) => c.maxRunTicks)).toEqual([undefined, undefined]);
+    expect(track.commands.map((c) => c.type)).toEqual(['TAKE', 'DELIVER']);
+  });
+
   it('samples the live route without unbounded growth', () => {
     const recorder = new CommandRecorder(new IdRegistry(), 'test');
     const actor = createActor('warden', 'WARDEN', { x: 0, y: 0 }, 120, 0);
     recorder.start();
-    recorder.record(0, 'MOVE_TO', { point: { x: 400, y: 400 } });
+    const command = recorder.record(0, 'MOVE_TO', { point: { x: 400, y: 400 } })!;
+    recorder.noteCommandStarted(command, 0);
 
     for (let tick = 1; tick <= 3000; tick++) {
       actor.position = { x: tick % 400, y: tick % 400 };

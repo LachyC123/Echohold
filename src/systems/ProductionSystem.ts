@@ -30,12 +30,16 @@ export class ProductionSystem {
     _world: SimWorld,
     station: SimStation,
     actor: SimActor,
+    /** What the actor will be holding when this command runs. */
+    carryingOverride?: string | null,
   ): 'TAKE' | 'DELIVER' | 'WORK' | 'OPERATE' | 'SIGNAL' | null {
     const def = getStationDefinition(station.definitionId);
     if (station.destroyed) return null;
 
+    const carrying = carryingOverride !== undefined ? carryingOverride : actor.carrying;
+
     // Carrying something the station wants? Delivering is always the intent.
-    if (actor.carrying && itemMatchesTags(actor.carrying, def.acceptedItemTags)) return 'DELIVER';
+    if (carrying && itemMatchesTags(carrying, def.acceptedItemTags)) return 'DELIVER';
 
     if (def.kind === 'SIGNAL') return 'SIGNAL';
 
@@ -45,7 +49,7 @@ export class ProductionSystem {
       return (station.outputs[LOADED_SHOT_ITEM_ID] ?? 0) > 0 ? 'OPERATE' : null;
     }
 
-    if (!actor.carrying) {
+    if (!carrying) {
       if (this.hasTakeableOutput(station)) return 'TAKE';
       if (this.hasTakeableStock(station)) return 'TAKE';
       if (this.findReadyRecipe(station) !== null) return 'WORK';

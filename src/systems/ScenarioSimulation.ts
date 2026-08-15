@@ -72,6 +72,8 @@ export class ScenarioSimulation {
   private tracks: EchoTrack[] = [];
   private warden: SimActor;
   private liveCommand: EchoCommand | null = null;
+  /** One command waiting behind the action already in progress. */
+  private queuedCommand: EchoCommand | null = null;
   private result: LoopResult | null = null;
   private runNumber = 0;
 
@@ -143,6 +145,7 @@ export class ScenarioSimulation {
     this.tracks = tracks;
     this.result = null;
     this.liveCommand = null;
+    this.queuedCommand = null;
 
     // Reset every system before any of them can observe stale state.
     //
@@ -239,10 +242,22 @@ export class ScenarioSimulation {
 
     const now = this.warden.task;
     if (wasRunning && now && (now.state === 'COMPLETE' || now.state === 'FAILED')) {
-      // Command ended by itself; nothing to truncate on replay.
       this.recorder.noteCommandFinished(this.world.tick);
       this.liveCommand = null;
     }
+
+    // The action finished, so whatever the player lined up behind it starts.
+    if (this.liveCommand === null && this.queuedCommand !== null) {
+      const next = this.queuedCommand;
+      this.queuedCommand = null;
+      this.startLiveCommand(next);
+    }
+  }
+
+  private startLiveCommand(command: EchoCommand): void {
+    this.liveCommand = command;
+    this.recorder.noteCommandStarted(command, this.world.tick);
+    this.tasks.begin(this.world, this.warden, command);
   }
 
   endRun(reason: LoopEndReason): LoopResult {
@@ -357,7 +372,12 @@ export class ScenarioSimulation {
   resolveTap(point: Vec2): TapResolution | null {
     const station = this.stationAt(point);
     if (station) {
-      const action = this.production.resolveDefaultAction(this.world, station, this.warden);
+      const action = this.production.resolveDefaultAction(
+        this.world,
+        station,
+        this.warden,
+        this.pendingCarry(),
+      );
       if (!action) {
         // Tapping a station that has nothing to offer still walks you there,
         // which reads as responsive rather than broken.
@@ -378,6 +398,25 @@ export class ScenarioSimulation {
     const snapped = this.nav.snap(point);
     if (!snapped) return null;
     return { type: 'MOVE_TO', point: snapped, label: 'Move' };
+  }
+
+  /**
+   * What the Warden will be holding by the time the next command runs.
+   *
+   * Without this, tapping the ballista while the bolt is still being lifted
+   * reads as "walk over there" rather than "load it", and the recording says
+   * something the player never meant.
+   */
+  private pendingCarry(): string | null {
+    if (this.warden.carrying) return this.warden.carrying;
+
+    const pending = this.queuedCommand ?? this.liveCommand;
+    if (pending?.type === 'TAKE' && pending.targetId) {
+      const station = this.world.stations.get(pending.targetId);
+      if (station) return pending.itemDefinitionId ?? this.production.nextTakeableItem(station);
+    }
+    if (pending?.type === 'DELIVER') return null;
+    return null;
   }
 
   private labelFor(action: EchoCommandType): string {
@@ -428,7 +467,14 @@ export class ScenarioSimulation {
     return best;
   }
 
-  /** Issues a resolved command to the live Warden and records it. */
+  /**
+   * Issues a resolved command to the live Warden and records it.
+   *
+   * A command that arrives while another is running is *queued*, not
+   * substituted. Tapping the armoury and then the ballista means "fetch a bolt
+   * and load it", and cancelling the fetch there would be both surprising and
+   * unrecordable. Only a move is treated as an immediate change of mind.
+   */
   issue(resolution: TapResolution): EchoCommand | null {
     if (this.world.finished) return null;
 
@@ -440,8 +486,18 @@ export class ScenarioSimulation {
     const command = this.recorder.record(this.world.tick, resolution.type, options);
     if (!command) return null;
 
-    this.liveCommand = command;
-    this.tasks.begin(this.world, this.warden, command);
+    const task = this.warden.task;
+    const busy = task !== null && task.state !== 'COMPLETE' && task.state !== 'FAILED';
+    const interrupts = !busy || resolution.type === 'MOVE_TO';
+
+    if (interrupts) {
+      if (busy) this.recorder.noteCommandInterrupted(this.world.tick);
+      this.queuedCommand = null;
+      this.startLiveCommand(command);
+    } else {
+      // Only one command waits; a third tap replaces the second.
+      this.queuedCommand = command;
+    }
     return command;
   }
 

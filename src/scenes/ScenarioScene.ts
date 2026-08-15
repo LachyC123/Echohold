@@ -414,8 +414,9 @@ export class ScenarioScene extends Phaser.Scene {
     // bounds would pin it to the top-left corner rather than centring it.
     camera.setZoom(this.zoomWide);
     const target = this.cameraTarget();
-    camera.scrollX = target.x - camera.width / (2 * camera.zoom);
-    camera.scrollY = target.y - camera.height / (2 * camera.zoom);
+    const scroll = this.scrollFor(target);
+    camera.scrollX = scroll.x;
+    camera.scrollY = scroll.y;
     camera.fadeIn(240, 12, 18, 26);
   }
 
@@ -455,15 +456,26 @@ export class ScenarioScene extends Phaser.Scene {
     return { x, y };
   }
 
+  /**
+   * Scroll that puts `target` at the centre of the viewport.
+   *
+   * Phaser scales about the camera midpoint, so the offset is half the
+   * viewport in *unzoomed* units. Dividing by the zoom here - the obvious
+   * mistake - pins the world to the right edge at any zoom below one, which
+   * is invisible on a tall phone and glaring on a short one.
+   */
+  private scrollFor(target: Vec2): Vec2 {
+    const camera = this.cameras.main;
+    return { x: target.x - camera.width / 2, y: target.y - camera.height / 2 };
+  }
+
   private updateCamera(delta: number): void {
     const camera = this.cameras.main;
-    const target = this.cameraTarget();
+    const desired = this.scrollFor(this.cameraTarget());
     const lerp = Math.min(1, (delta / 1000) * 2.4);
 
-    const desiredScrollX = target.x - camera.width / (2 * camera.zoom);
-    const desiredScrollY = target.y - camera.height / (2 * camera.zoom);
-    camera.scrollX += (desiredScrollX - camera.scrollX) * lerp;
-    camera.scrollY += (desiredScrollY - camera.scrollY) * lerp;
+    camera.scrollX += (desired.x - camera.scrollX) * lerp;
+    camera.scrollY += (desired.y - camera.scrollY) * lerp;
   }
 
   private setZoomLevel(zoom: number): void {

@@ -158,3 +158,66 @@ describe('item conservation', () => {
     expect(countItems()).toBe(6);
   });
 });
+
+describe('queued commands', () => {
+  it('lines a command up behind the one in progress instead of cancelling it', () => {
+    const sim = makeSimulation();
+    const armoury = sim.getWorld().stations.get('armoury_rack')!;
+    const ballista = sim.getWorld().stations.get('ballista')!;
+
+    // Tap the armoury, then the ballista before the bolt is even lifted.
+    sim.issueAt(armoury.position);
+    stepTicks(sim, 10);
+    const second = sim.resolveTap(ballista.position);
+
+    // The tap resolves against the bolt the Warden is about to hold.
+    expect(second?.type).toBe('DELIVER');
+    expect(second?.targetId).toBe('ballista');
+    sim.issue(second!);
+
+    runToEnd(sim);
+
+    const commands = sim.recorder.peek();
+    expect(commands.map((c) => c.type)).toEqual(['TAKE', 'DELIVER']);
+    // Neither was abandoned, so the Echo will repeat both in full.
+    expect(commands.every((c) => c.maxRunTicks === undefined)).toBe(true);
+    expect(sim.bus.find('ITEM_DELIVERED').some((e) => e.payload.stationId === 'ballista')).toBe(true);
+  });
+
+  it('replays a queued pair exactly as the player meant it', () => {
+    const sim = makeSimulation();
+    const armoury = sim.getWorld().stations.get('armoury_rack')!;
+    const ballista = sim.getWorld().stations.get('ballista')!;
+
+    sim.issueAt(armoury.position);
+    stepTicks(sim, 10);
+    sim.issue(sim.resolveTap(ballista.position)!);
+    runToEnd(sim);
+    sim.keepRecording('Bolt');
+
+    sim.advanceRunNumber();
+    sim.startRun();
+    runToEnd(sim);
+
+    // The Echo loaded the ballista with no live input at all.
+    const loaded = sim.bus.find('RECIPE_COMPLETED').some((e) => e.payload.recipeId === 'ballista-load');
+    expect(loaded).toBe(true);
+    expect(sim.bus.find('ECHO_FRACTURED')).toHaveLength(0);
+  });
+
+  it('still treats a move as an immediate change of mind', () => {
+    const sim = makeSimulation();
+    const stack = sim.getWorld().stations.get('timber_stack')!;
+
+    sim.issueAt(stack.position);
+    stepTicks(sim, 12);
+    sim.issue({ type: 'MOVE_TO', point: { x: 240, y: 600 }, label: 'Move' });
+    stepTicks(sim, 5);
+
+    const commands = sim.recorder.peek();
+    expect(commands.map((c) => c.type)).toEqual(['TAKE', 'MOVE_TO']);
+    // The abandoned pickup records how far it actually got.
+    expect(commands[0]!.maxRunTicks).toBeGreaterThan(0);
+    expect(sim.getWarden().task?.type).toBe('MOVE_TO');
+  });
+});

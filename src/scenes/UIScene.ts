@@ -274,6 +274,11 @@ export class UIScene extends Phaser.Scene {
   private beginOverlay(kind: typeof this.overlayKind, dim = 0.92): Phaser.GameObjects.Container {
     this.clearOverlay();
     this.overlayKind = kind;
+    // The loop is over on a result or reward screen; leaving the live timer
+    // and roster showing behind them is just noise.
+    const loopIsOver = kind === 'result' || kind === 'reward';
+    this.hud.setVisible(!loopIsOver);
+    this.roster.setVisible(!loopIsOver);
     const background = this.add
       .rectangle(DESIGN_WIDTH / 2, this.scale.height / 2, DESIGN_WIDTH, this.scale.height, Palette.ink, dim)
       .setInteractive();
@@ -347,8 +352,6 @@ export class UIScene extends Phaser.Scene {
 
   private showResult(result: LoopResult): void {
     this.beginOverlay('result', 0.97);
-    this.hud.setVisible(false);
-    this.roster.setVisible(false);
 
     const simulation = this.scenarioScene.simulation;
     const won = result.success;
@@ -547,9 +550,14 @@ export class UIScene extends Phaser.Scene {
     this.overlayTitle(choice.headline, 190, 22, '#ffd88a');
     this.overlayTitle(choice.detail, 226, 12, '#90a2b5');
 
-    (choice.options ?? []).forEach((upgradeId, index) => {
+    // Two cards, centred in the space between the heading and the thumb zone.
+    const options = choice.options ?? [];
+    const cardHeight = 130;
+    const stackTop = Math.max(300, (this.scale.height - options.length * cardHeight) / 2);
+
+    options.forEach((upgradeId, index) => {
       const upgrade = UPGRADE_LIBRARY[upgradeId];
-      const y = 310 + index * 130;
+      const y = stackTop + index * cardHeight;
 
       const name = this.add
         .text(DESIGN_WIDTH / 2, y, upgrade?.name ?? upgradeId, {
@@ -621,8 +629,10 @@ export class UIScene extends Phaser.Scene {
       y += 50;
     }
 
-    this.overlayButton(Math.max(y + 20, 560), 'Return to the fortress', () => this.scenarioScene.returnToHub());
-    this.overlayButton(Math.max(y + 74, 614), 'Play it again', () => this.scenarioScene.discardAndRetry(), 'ghost');
+    this.paintActionStack([
+      ['Return to the fortress', () => this.scenarioScene.returnToHub(), 'primary'],
+      ['Play it again', () => this.scenarioScene.discardAndRetry(), 'ghost'],
+    ]);
   }
 
   private openSettings(): void {

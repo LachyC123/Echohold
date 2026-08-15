@@ -47,8 +47,13 @@ export class CommandRecorder {
   }
 
   /**
-   * Records a newly issued command. If one was already running it is closed
-   * out with the elapsed time, so playback can reproduce the interruption.
+   * Appends a command to the recording.
+   *
+   * Appending is deliberately separate from starting: the player may tap a
+   * second station while the first action is still running, and that reads as
+   * "then do this", not "instead do this". The simulation tells the recorder
+   * when a command actually starts, finishes or is abandoned, so the track
+   * stores what happened rather than what was guessed.
    */
   record(
     tick: number,
@@ -62,8 +67,6 @@ export class CommandRecorder {
     } = {},
   ): EchoCommand | null {
     if (!this.recording) return null;
-
-    this.closeActive(tick, true);
 
     const command: EchoCommand = {
       id: this.ids.next('cmd'),
@@ -81,14 +84,27 @@ export class CommandRecorder {
     };
 
     this.commands.push(command);
-    this.active = { command, startTick: tick };
-    this.samples = [];
     return command;
   }
 
-  /** Called when the live task ends on its own; no interruption is stored. */
+  /** The command the live Warden has just begun executing. */
+  noteCommandStarted(command: EchoCommand, tick: number): void {
+    if (!this.recording) return;
+    this.active = { command, startTick: tick };
+    this.samples = [];
+  }
+
+  /** The command ended on its own; nothing to truncate on replay. */
   noteCommandFinished(tick: number): void {
     this.closeActive(tick, false);
+  }
+
+  /**
+   * The player abandoned the command partway through. The elapsed time is
+   * stored so an Echo reproduces "walked halfway, changed my mind".
+   */
+  noteCommandInterrupted(tick: number): void {
+    this.closeActive(tick, true);
   }
 
   private closeActive(tick: number, interrupted: boolean): void {
@@ -96,8 +112,7 @@ export class CommandRecorder {
     const { command, startTick } = this.active;
     if (interrupted) {
       // Anything under a tick is a double-tap, not a change of mind.
-      const elapsed = Math.max(1, tick - startTick);
-      command.maxRunTicks = elapsed;
+      command.maxRunTicks = Math.max(1, tick - startTick);
     }
     if (this.samples.length > 1) command.pathSamples = this.samples;
     this.active = null;
@@ -115,7 +130,7 @@ export class CommandRecorder {
 
   /** Seals the recording into a track ready to be replayed. */
   build(endTick: number, slotIndex: number, runNumber: number, label?: string): EchoTrack {
-    this.closeActive(endTick, false);
+    this.noteCommandFinished(endTick);
     return {
       id: this.ids.next('track'),
       scenarioId: this.scenarioId,
